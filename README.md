@@ -1,4 +1,4 @@
-# ESP8266-07
+# ESP8266-07 https://img.shields.io/github/last-commit/altaiirdesmond/ESP8266-07.svg?style=flat-square
 
 Using ESP-07 to post DHT data on Firebase
 
