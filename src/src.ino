@@ -2,7 +2,7 @@
   The code is designed for esp8266 to recieve serial data from uno
 
   circuit:
-	ESP8266-01
+  ESP8266-01
 
   created:12/30/18
 
@@ -24,7 +24,7 @@ const char *FIREBASE_HOST = "projectespiot.firebaseio.com";
 const char *FIREBASE_AUTH = "sqffOzK95EZd7d0jJFJTy65m0XqnwZqLEo8RAurB";
 
 // WiFi credentials
-const char *ssid = "Don_Aljon"; 
+const char *ssid = "Thesis"; 
 const char *password = "aratan3525";
 
 long t;
@@ -38,87 +38,99 @@ String fileContent;
 String sensorContent;
 
 void setup() {
-	pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 
-	Serial.begin(74880);
+  Serial.begin(74880);
 
-	// Connect to WiFi network
-	WiFi.begin(ssid, password);
-	WiFi.BSSID();
-	while (WiFi.status() != WL_CONNECTED) {
-		digitalWrite(LED_BUILTIN, HIGH);
-		delay(50);
-		digitalWrite(LED_BUILTIN, LOW);
-		delay(50);
-	}
+  // Connect to WiFi network
+  WiFi.begin(ssid, password);
+  WiFi.BSSID();
+  while (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(50);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(50);
+  }
 
-	firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
-	fan1State = firebase.getInt(F("/sensor/Fan1"));
-	fan2State = firebase.getInt(F("/sensor/Fan2"));
+  firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  fan1State = firebase.getInt(F("/sensor/Fan1"));
+  fan2State = firebase.getInt(F("/sensor/Fan2"));
 
-	webserver.on(F("/reading"), handleRootPath);
-	webserver.on(F("/hwRestart"), handleRestartPath);
-	webserver.begin();
+  webserver.on(F("/reading"), handleRootPath);
+  webserver.on(F("/hwRestart"), handleRestartPath);
+  webserver.begin();
 
-	// Inform arduino of esp8266's IP
-	Serial.print(F("IP: "));
-	Serial.println(WiFi.localIP().toString());
+  // Inform arduino of esp8266's IP
+  Serial.print(F("IP: "));
+  Serial.println(WiFi.localIP().toString());
 }
 
 void loop() {
-	if (Serial.available()) {
-		content = Serial.readString();
-		//Serial.println(content);
-		if (content.startsWith(F("reading"))) {
-			sensorContent = content;
-			// Clean
-			sensorContent.replace(F("reading"), F(""));
-			sensorContent.trim();
+  if (Serial.available()) {
+    content = Serial.readString();
+    //Serial.println(content);
+    if (content.startsWith(F("reading"))) {
+      sensorContent = content;
 
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject &object = jsonBuffer.parseObject(sensorContent);
+      // Clean
+      sensorContent.replace(F("reading"), F(""));
+      sensorContent.trim();
+	  
+	  // Cache json object from serial data
+      DynamicJsonBuffer jsonBuffer;
+      JsonObject &object = jsonBuffer.parseObject(sensorContent);
 
-			firebase.push(F("/sensor/dht"), object);
-			if (!firebase.success()) {
-				Serial.println(firebase.error());
-				return;
-			}
+	  // Then add new roots(fan1 and fan2)
+	  DynamicJsonBuffer newJsonBuffer;
+	  JsonObject &root = newJsonBuffer.createObject();
+	  root["temperature"] = object["temperature"];
+	  root["humidity"] = object["humidity"];
+	  root["time"] = object["time"];
+	  root["fan1"] = firebase.getInt(F("/sensor/Fan1"));
+	  root["fan2"] = firebase.getInt(F("/sensor/Fan2"));
 
-			digitalWrite(LED_BUILTIN, HIGH);
-			delay(50);
-			digitalWrite(LED_BUILTIN, LOW);
-			delay(50);
-		}
-	}
+	  // Push to database
+      firebase.push(F("/sensor/dht"), root);
+      if (!firebase.success()) {
+        Serial.println(firebase.error());
+        return;
+      }
 
-	unsigned long currentMillis = millis(); // Gets track of time
-	if ((unsigned long)(currentMillis - lastDisplayUpdate) >= 1000) {
-		if (firebase.getInt(F("/sensor/Fan1")) != fan1State ||
-			firebase.getInt(F("/sensor/Fan2")) != fan2State || firstInit) {
-			firstInit = false;
-			fan1State = firebase.getInt(F("/sensor/Fan1"));
-			fan2State = firebase.getInt(F("/sensor/Fan2"));
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(50);
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(50);
+    }
+  }
 
-			String fanState = F("FanControl:");
-			fanState += String(firebase.getInt(F("sensor/Fan1"))) + F(",") +
-				String(firebase.getInt(F("/sensor/Fan2")));
+  unsigned long currentMillis = millis(); // Gets track of time
+  if ((unsigned long)(currentMillis - lastDisplayUpdate) >= 1000) {
+    if (firebase.getInt(F("/sensor/Fan1")) != fan1State ||
+      firebase.getInt(F("/sensor/Fan2")) != fan2State || firstInit) {
+      firstInit = false;
+      fan1State = firebase.getInt(F("/sensor/Fan1"));
+      fan2State = firebase.getInt(F("/sensor/Fan2"));
 
-			Serial.println(fanState);
-		}
-	}
+      String fanState = F("FanControl:");
+      fanState += String(firebase.getInt(F("sensor/Fan1"))) + F(",") +
+        String(firebase.getInt(F("/sensor/Fan2")));
 
-	webserver.handleClient();
+      Serial.println(fanState);
+    }
+  }
+
+  webserver.handleClient();
 }
 
 // Where the sensor values will be periodically sent
 void handleRootPath() {
-	webserver.send(200, F("text/plain"), sensorContent);
+  webserver.send(200, F("text/plain"), sensorContent);
 
-	Serial.println(sensorContent);
+  Serial.println(sensorContent);
 }
 
 void handleRestartPath() {
-	webserver.send(200, F("text/plain"), F("ESP restart"));
-	Serial.println(F("restart"));
-	ESP.restart();
+  webserver.send(200, F("text/plain"), F("ESP restart"));
+  Serial.println(F("restart"));
+  ESP.restart();
 }
