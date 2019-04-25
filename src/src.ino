@@ -24,7 +24,7 @@ const char *FIREBASE_HOST = "projectespiot.firebaseio.com";
 const char *FIREBASE_AUTH = "sqffOzK95EZd7d0jJFJTy65m0XqnwZqLEo8RAurB";
 
 // WiFi credentials
-const char *ssid = "Thesis"; 
+const char *ssid = "Thesis";
 const char *password = "aratan3525";
 
 long t;
@@ -75,26 +75,39 @@ void loop() {
       // Clean
       sensorContent.replace(F("reading"), F(""));
       sensorContent.trim();
-	  
-	  // Cache json object from serial data
+
+      // Cache json object from serial data
       DynamicJsonBuffer jsonBuffer;
       JsonObject &object = jsonBuffer.parseObject(sensorContent);
 
-	  // Then add new roots(fan1 and fan2)
-	  DynamicJsonBuffer newJsonBuffer;
-	  JsonObject &root = newJsonBuffer.createObject();
-	  root["temperature"] = object["temperature"];
-	  root["humidity"] = object["humidity"];
-	  root["time"] = object["time"];
-	  root["fan1"] = firebase.getInt(F("/sensor/Fan1"));
-	  root["fan2"] = firebase.getInt(F("/sensor/Fan2"));
+      // Then add new roots(fan1 and fan2)
+      DynamicJsonBuffer newJsonBuffer;
+      JsonObject &root = newJsonBuffer.createObject();
 
-	  // Push to database
+	  // fetching temp for setting up fan state
+	  int temp = object["temperature"];
+
+      root["temperature"] = temp;
+      root["humidity"] = object["humidity"];
+      root["time"] = object["time"];
+
+	  if (temp <= 34) {
+		  root["fan1"] = 0;
+		  root["fan2"] = 0;
+	  }
+	  else if (temp > 34) {
+		  root["fan1"] = 1;
+		  root["fan2"] = 1;
+	  }
+
+      // Push to database
       firebase.push(F("/sensor/dht"), root);
       if (!firebase.success()) {
         Serial.println(firebase.error());
         return;
       }
+
+      root.printTo(Serial);
 
       digitalWrite(LED_BUILTIN, HIGH);
       delay(50);
@@ -106,14 +119,14 @@ void loop() {
   unsigned long currentMillis = millis(); // Gets track of time
   if ((unsigned long)(currentMillis - lastDisplayUpdate) >= 1000) {
     if (firebase.getInt(F("/sensor/Fan1")) != fan1State ||
-      firebase.getInt(F("/sensor/Fan2")) != fan2State || firstInit) {
+        firebase.getInt(F("/sensor/Fan2")) != fan2State || firstInit) {
       firstInit = false;
       fan1State = firebase.getInt(F("/sensor/Fan1"));
       fan2State = firebase.getInt(F("/sensor/Fan2"));
 
       String fanState = F("FanControl:");
       fanState += String(firebase.getInt(F("sensor/Fan1"))) + F(",") +
-        String(firebase.getInt(F("/sensor/Fan2")));
+                  String(firebase.getInt(F("/sensor/Fan2")));
 
       Serial.println(fanState);
     }
