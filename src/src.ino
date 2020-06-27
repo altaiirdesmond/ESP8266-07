@@ -6,7 +6,7 @@
 
   created:12/30/18
 
-  @author: cdtekk
+  @author: Kim Aurellano
 */
 
 #include <ESP8266WebServer.h>
@@ -20,8 +20,8 @@ ESP8266WebServer webserver(80);
 
 // Firebase
 FirebaseArduino firebase;
-const char *FIREBASE_HOST = "projectespiot.firebaseio.com";
-const char *FIREBASE_AUTH = "sqffOzK95EZd7d0jJFJTy65m0XqnwZqLEo8RAurB";
+const char *FIREBASE_HOST = "";
+const char *FIREBASE_AUTH = "";
 
 // WiFi credentials
 const char *ssid = "Thesis";
